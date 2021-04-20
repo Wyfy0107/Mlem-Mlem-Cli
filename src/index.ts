@@ -9,9 +9,38 @@ import inquirer from 'inquirer'
 import open from 'open'
 import os from 'os'
 import { exec } from 'child_process'
+import { readdir, lstat } from 'fs/promises'
+import FormData from 'form-data'
 
-const backendUrl = 'https://dev.mlem-mlem.net'
-const loginUrl = 'https://example.com'
+axios.defaults = { proxy: false }
+
+const devUrl = 'http://localhost:5000'
+const prodUrl = 'https://dev.mlem-mlem.net'
+
+const backendUrl = prodUrl
+const loginUrl = 'http://localhost:3000'
+let token = ''
+
+fs.readFile(`${os.homedir()}/.mlem-mlem`, (err, file) => {
+  if (err) console.log(chalk.red(err))
+  token = file.toString()
+})
+
+axios.interceptors.request.use(req => {
+  req.headers['Authorization'] = `Bearer ${token}`
+  return req
+})
+
+axios.interceptors.response.use(
+  res => {
+    console.log(chalk.yellow(res))
+    return res
+  },
+  err => {
+    console.log(chalk.red(err.message))
+    process.exit(1)
+  }
+)
 
 const argv = yargs
   .usage('$0 <command>')
@@ -24,21 +53,6 @@ const argv = yargs
         message: 'Please enter your access token',
       },
     ])
-
-    axios.interceptors.request.use(req => {
-      req.headers['Authorization'] = `Bearer ${args.token}`
-      return req
-    })
-
-    axios.interceptors.response.use(
-      res => {
-        return res
-      },
-      err => {
-        console.log(chalk.red(err.message))
-        process.exit(1)
-      }
-    )
 
     fs.writeFile(`${os.homedir()}/.mlem-mlem`, args.token, err => {
       if (err) console.log(chalk.red(`Error saving file: ${err.message}`))
@@ -71,11 +85,12 @@ const argv = yargs
 const createWebAlias = async (alias: string) => {
   try {
     const spinner = ora('Saving your website alias').start()
-    await axios
-      .post(`${backendUrl}/website`, { alias })
-      .then(() => spinner.succeed('Saved'))
+    await axios.post(`${backendUrl}/website`, { alias }).then(res => {
+      console.log('res', res)
+      spinner.succeed('Saved')
+    })
   } catch (error) {
-    console.log(chalk.red(`Error: ${error.message}`))
+    console.log(chalk.red(`Error: ${error}`))
     process.exit(1)
   }
 }
@@ -84,7 +99,7 @@ const createBucket = async () => {
   try {
     const spinner = ora('Creating s3 bucker').start()
     await axios
-      .post(`${backendUrl}/bucket`)
+      .post(`${backendUrl}/website/bucket`)
       .then(() => spinner.succeed('Created'))
   } catch (error) {
     console.log(chalk.red(`Error: ${error.message}`))
@@ -96,7 +111,7 @@ const createCloudfront = async () => {
   try {
     const spinner = ora('Creating cloudfront distribution').start()
     await axios
-      .post(`${backendUrl}/cloudfront`)
+      .post(`${backendUrl}/website/cloudfront`)
       .then(() => spinner.succeed('Created'))
   } catch (error) {
     console.log(chalk.red(`Error: ${error.message}`))
@@ -108,7 +123,7 @@ const createRecord = async () => {
   try {
     const spinner = ora('Creating route53 record').start()
     await axios
-      .post(`${backendUrl}/record`)
+      .post(`${backendUrl}/website/record`)
       .then(() => spinner.succeed('Created'))
   } catch (error) {
     console.log(chalk.red(`Error: ${error.message}`))
@@ -120,25 +135,63 @@ const uploadFiles = async (folderName: string) => {
   try {
     const spinner = ora('Uploading your static files').start()
 
-    exec('git rev-parse --show-toplevel', (err, stdout) => {
+    exec('git rev-parse --show-toplevel', async (err, stdout) => {
       if (err) {
         console.log(chalk.red(`Error: ${err.message}`))
         process.exit(1)
       }
 
-      const path = `${stdout.replace(/\n/, '')}/${folderName}`
+      const rootPath = `${stdout.replace(/\n/, '')}/${folderName}`
 
-      fs.readdir(path, async (err, files) => {
-        const formData = files.map(f => ({
-          file: fs.createReadStream(f),
-        }))
+      const locations = await getAllFilesLocations(rootPath)
 
-        await axios
-          .post(`${backendUrl}/bucket/upload`)
-          .then(() => spinner.succeed('Uploaded'))
+      const formData = new FormData()
+
+      locations.forEach(file => {
+        const key = file.replace(`${rootPath}/`, '')
+        formData.append(key, fs.createReadStream(file))
       })
+
+      console.log(
+        formData.getLength((err, length) => {
+          console.log('length', length)
+        })
+      )
+
+      await axios
+        .post(`${backendUrl}/website/bucket/upload`, formData, {
+          headers: formData.getHeaders(),
+        })
+        .then(() => spinner.succeed())
+        .catch(err => console.log(chalk.red(err.message)))
     })
   } catch (error) {
     console.log(chalk.red(`Error: ${error.message}`))
   }
+}
+
+const getAllFilesLocations = async (rootPath: string): Promise<string[]> => {
+  const fileNames = await readdir(rootPath).catch(err =>
+    console.log(chalk.red(err))
+  )
+
+  if (fileNames) {
+    const res = await Promise.all(
+      fileNames.map(async name => {
+        const isDirectory = await lstat(`${rootPath}/${name}`)
+          .then(res => res.isDirectory())
+          .catch(err => console.log(chalk.red(err)))
+
+        if (isDirectory) {
+          return getAllFilesLocations(`${rootPath}/${name}`)
+        } else {
+          return [`${rootPath}/${name}`]
+        }
+      })
+    )
+
+    return res.reduce((a, b) => a.concat(b), [])
+  }
+
+  return []
 }
