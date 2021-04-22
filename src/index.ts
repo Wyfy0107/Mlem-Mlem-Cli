@@ -12,8 +12,6 @@ import { exec } from 'child_process'
 import { readdir, lstat } from 'fs/promises'
 import FormData from 'form-data'
 
-axios.defaults = { proxy: false }
-
 const devUrl = 'http://localhost:5000'
 const prodUrl = 'https://dev.mlem-mlem.net'
 
@@ -73,10 +71,10 @@ const argv = yargs
     ])
 
     await createWebAlias(args.alias)
-    await createBucket()
-    await createCloudfront()
-    await createRecord()
-    await uploadFiles(args.folder)
+    await createBucket(args.alias)
+    await createCloudfront(args.alias)
+    await createRecord(args.alias)
+    await uploadFiles(args.alias, args.folder)
   })
   .alias('h', 'help')
   .alias('v', 'version')
@@ -85,21 +83,20 @@ const argv = yargs
 const createWebAlias = async (alias: string) => {
   try {
     const spinner = ora('Saving your website alias').start()
-    await axios.post(`${backendUrl}/website`, { alias }).then(res => {
-      console.log('res', res)
-      spinner.succeed('Saved')
-    })
+    await axios
+      .post(`${backendUrl}/website`, { alias })
+      .then(() => spinner.succeed('Saved'))
   } catch (error) {
     console.log(chalk.red(`Error: ${error}`))
     process.exit(1)
   }
 }
 
-const createBucket = async () => {
+const createBucket = async (alias: string) => {
   try {
     const spinner = ora('Creating s3 bucker').start()
     await axios
-      .post(`${backendUrl}/website/bucket`)
+      .post(`${backendUrl}/website/bucket`, { alias })
       .then(() => spinner.succeed('Created'))
   } catch (error) {
     console.log(chalk.red(`Error: ${error.message}`))
@@ -107,11 +104,11 @@ const createBucket = async () => {
   }
 }
 
-const createCloudfront = async () => {
+const createCloudfront = async (alias: string) => {
   try {
     const spinner = ora('Creating cloudfront distribution').start()
     await axios
-      .post(`${backendUrl}/website/cloudfront`)
+      .post(`${backendUrl}/website/cloudfront`, { alias })
       .then(() => spinner.succeed('Created'))
   } catch (error) {
     console.log(chalk.red(`Error: ${error.message}`))
@@ -119,11 +116,11 @@ const createCloudfront = async () => {
   }
 }
 
-const createRecord = async () => {
+const createRecord = async (alias: string) => {
   try {
     const spinner = ora('Creating route53 record').start()
     await axios
-      .post(`${backendUrl}/website/record`)
+      .post(`${backendUrl}/website/record`, { alias })
       .then(() => spinner.succeed('Created'))
   } catch (error) {
     console.log(chalk.red(`Error: ${error.message}`))
@@ -131,7 +128,7 @@ const createRecord = async () => {
   }
 }
 
-const uploadFiles = async (folderName: string) => {
+const uploadFiles = async (alias: string, folderName: string) => {
   try {
     const spinner = ora('Uploading your static files').start()
 
@@ -152,14 +149,8 @@ const uploadFiles = async (folderName: string) => {
         formData.append(key, fs.createReadStream(file))
       })
 
-      console.log(
-        formData.getLength((err, length) => {
-          console.log('length', length)
-        })
-      )
-
       await axios
-        .post(`${backendUrl}/website/bucket/upload`, formData, {
+        .post(`${backendUrl}/website/bucket/upload/${alias}`, formData, {
           headers: formData.getHeaders(),
         })
         .then(() => spinner.succeed())
