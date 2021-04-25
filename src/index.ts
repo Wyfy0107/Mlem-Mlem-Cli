@@ -12,11 +12,8 @@ import { exec } from 'child_process'
 import { readdir, lstat } from 'fs/promises'
 import FormData from 'form-data'
 
-const devUrl = 'http://localhost:5000'
-const prodUrl = 'https://dev.mlem-mlem.net'
-
-const backendUrl = prodUrl
-const loginUrl = 'http://localhost:3000'
+const backendUrl = 'https://dev.mlem-mlem.net'
+const loginUrl = 'https://login.mlem-mlem.net'
 let token = ''
 
 fs.readFile(`${os.homedir()}/.mlem-mlem`, (err, file) => {
@@ -31,7 +28,6 @@ axios.interceptors.request.use(req => {
 
 axios.interceptors.response.use(
   res => {
-    console.log(chalk.yellow(res))
     return res
   },
   err => {
@@ -153,7 +149,7 @@ const uploadFiles = async (alias: string, folderName: string) => {
         .post(`${backendUrl}/website/bucket/upload/${alias}`, formData, {
           headers: formData.getHeaders(),
         })
-        .then(() => spinner.succeed())
+        .then(() => spinner.succeed('Upload Complete'))
         .catch(err => console.log(chalk.red(err.message)))
     })
   } catch (error) {
