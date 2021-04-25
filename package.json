@@ -5,7 +5,7 @@
   "license": "MIT",
   "private": false,
   "bin": {
-    "mlem": "./dist/index.js"
+    "mlem": "index.js"
   },
   "scripts": {
     "build": "tsc",
