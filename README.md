@@ -4,7 +4,7 @@ This project is a node command line tool to interact with [mlem-mlem server](htt
 
 ## How
 
-Your website static files will be uploaded to AWS S3, then served to user by the CloudFront global CDN network. You can also choose a website name of you choice which will be created as a Route53 record connected to the CloudFront distribution. All websites are served with HTTPS.
+Your website static files will be uploaded to AWS S3, then served to user by the CloudFront global CDN network. You can also choose a website name of you choice which will be created as a Route53 record connected to the CloudFront distribution. All websites are served with HTTPS. After a successful deployment, your website url will look like this: **https://{name_of_your_choice}.mlem-mlem.net**
 
 ## Installation
 
