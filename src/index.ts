@@ -17,7 +17,13 @@ const loginUrl = 'https://login.mlem-mlem.net'
 let token = ''
 
 fs.readFile(`${os.homedir()}/.mlem-mlem`, (err, file) => {
-  if (err) console.log(chalk.red(err))
+  if (err) {
+    if (err.code === 'ENOENT') {
+      exec(`touch ~/.mlem-mlem`)
+    } else {
+      console.log(chalk.red(err))
+    }
+  }
   token = file.toString()
 })
 
