@@ -13,13 +13,12 @@
     "postinstall": "husky install",
     "prepublishOnly": "pinst --disable",
     "postpublish": "pinst --enable",
-    "postbuild": "cp package.json dist"
+    "postbuild": "cp package.json .npmignore dist"
   },
   "preferGlobal": true,
   "dependencies": {
     "@types/inquirer": "^7.3.1",
     "@types/node": "^14.14.37",
-    "@types/ora": "^3.2.0",
     "@types/yargs": "^16.0.1",
     "@types/yargs-interactive": "^2.1.1",
     "axios": "^0.21.1",
