@@ -7,6 +7,10 @@
   "bin": {
     "mlem": "index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Wyfy0107/Mlem-Mlem-Cli"
+  },
   "scripts": {
     "build": "tsc",
     "watch-ts": "tsc --watch",
